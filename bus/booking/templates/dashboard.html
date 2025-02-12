@@ -1,0 +1,7 @@
+{% if request.user.is_admin %}
+    <h2>Admin Dashboard</h2>
+    <p>Manage buses and schedules</p>
+{% else %}
+    <h2>Passenger Dashboard</h2>
+    <p>Book tickets and view trips</p>
+{% endif %}
