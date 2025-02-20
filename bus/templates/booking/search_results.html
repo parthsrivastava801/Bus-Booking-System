@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Available Buses</h2>
+{% if buses %}
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Bus Name</th>
+                <th>Departure Time</th>
+                <th>Available Seats</th>
+                <th>Fare</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bus in buses %}
+            <tr>
+                <td>{{ bus.name }}</td>
+                <td>{{ bus.departure_time }}</td>
+                <td>{{ bus.available_seats }}</td>
+                <td>${{ bus.fare }}</td>
+                <td>
+                    <a href="{% url 'book_ticket' bus.id %}" class="btn btn-primary">Book Now</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">No buses available for the selected route and date.</div>
+{% endif %}
+{% endblock %}

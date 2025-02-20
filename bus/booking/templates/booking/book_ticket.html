@@ -1,0 +1,13 @@
+{% extends "booking/base.html" %}
+{% block content %}
+<h2>Book Ticket</h2>
+<p>Bus: {{ bus.bus_number }}</p>
+<p>Route: {{ bus.route }}</p>
+<p>Seats Available: {{ bus.available_seats }}</p>
+<form method="post">
+    {% csrf_token %}
+    <label for="seats">Number of Seats:</label>
+    <input type="number" name="seats" required>
+    <button type="submit">Book</button>
+</form>
+{% endblock %}

@@ -1,57 +1,96 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from .forms import CustomUserCreationForm
-from .models import CustomUser
-from django.core.exceptions import PermissionDenied
-
-# User Registration
-def register(request):
-    if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect('dashboard')
-    else:
-        form = CustomUserCreationForm()
-    return render(request, 'booking/register.html', {'form': form})
-
-# User Login
-def user_login(request):
-    if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
-        user = authenticate(request, username=username, password=password)
-        if user:
-            login(request, user)
-            return redirect('dashboard')
-    return render(request, 'booking/login.html')
-
-# User Logout
-def user_logout(request):
-    logout(request)
-    return redirect('login')
-
-# Dashboard (Redirect based on user type)
-@login_required
-def dashboard(request):
-    if request.user.is_admin():
-        return redirect('admin_dashboard')
-    return redirect('passenger_dashboard')
-
-def admin_required(function):
-    def wrap(request, *args, **kwargs):
-        if request.user.is_admin():
-            return function(request, *args, **kwargs)
-        else:
-            raise PermissionDenied
-    return wrap
+from django.contrib.auth.mixins import UserPassesTestMixin
+from django.views.generic import ListView
+from django.db.models import Q
+from .models import Bus, Booking, User
+from datetime import datetime, timedelta
 
 @login_required
-@admin_required
-def manage_buses(request):
-    return render(request, 'booking/admin_dashboard.html')
+def home(request):
+    if request.method == 'POST':
+        source = request.POST.get('source')
+        destination = request.POST.get('destination')
+        date = request.POST.get('date')
+        
+        buses = Bus.objects.filter(
+            source=source,
+            destination=destination,
+            is_active=True,
+            available_seats__gt=0
+        ).order_by('departure_time')
+        
+        return render(request, 'booking/search_results.html', {'buses': buses})
+    return render(request, 'booking/home.html')
 
+@login_required
+def book_ticket(request, bus_id):
+    bus = Bus.objects.get(id=bus_id)
+    if request.method == 'POST':
+        passengers = request.POST.getlist('passenger_name[]')
+        ages = request.POST.getlist('passenger_age[]')
+        
+        total_fare = bus.fare * len(passengers)
+        
+        if request.user.wallet_balance < total_fare:
+            return render(request, 'booking/error.html', 
+                        {'message': 'Insufficient wallet balance'})
+        
+        booking = Booking.objects.create(
+            user=request.user,
+            bus=bus,
+            travel_date=request.POST.get('travel_date'),
+            total_fare=total_fare
+        )
+        
+        for i, (name, age) in enumerate(zip(passengers, ages)):
+            Passenger.objects.create(
+                booking=booking,
+                name=name,
+                age=age,
+                seat_number=bus.available_seats - i
+            )
+        
+        bus.available_seats -= len(passengers)
+        bus.save()
+        
+        request.user.wallet_balance -= total_fare
+        request.user.save()
+        
+        return redirect('booking_history')
+    
+    return render(request, 'booking/book_ticket.html', {'bus': bus})
 
+@login_required
+def cancel_booking(request, booking_id):
+    booking = Booking.objects.get(id=booking_id)
+    
+    if booking.user != request.user:
+        return redirect('booking_history')
+    
+    time_until_departure = booking.travel_date - timezone.now().date()
+    if time_until_departure < timedelta(hours=6):
+        return render(request, 'booking/error.html',
+                    {'message': 'Cannot cancel within 6 hours of departure'})
+    
+    booking.status = 'CANCELLED'
+    booking.save()
+    
+    # Refund the user
+    request.user.wallet_balance += booking.total_fare
+    request.user.save()
+    
+    # Restore bus seats
+    bus = booking.bus
+    bus.available_seats += booking.passengers.count()
+    bus.save()
+    
+    return redirect('booking_history')
 
+class BookingHistoryView(ListView):
+    model = Booking
+    template_name = 'booking/booking_history.html'
+    context_object_name = 'bookings'
+    
+    def get_queryset(self):
+        return Booking.objects.filter(user=self.request.user).order_by('-booking_date')

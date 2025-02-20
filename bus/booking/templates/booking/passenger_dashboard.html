@@ -1,0 +1,13 @@
+{% extends "booking/base.html" %}
+{% block content %}
+<h2>Passenger Dashboard</h2>
+<p>Welcome, {{ request.user.username }}!</p>
+<p>Wallet Balance: ₹{{ request.user.wallet.balance }}</p>
+<a href="{% url 'add_funds' %}">Add Funds</a>
+<h3>Available Buses:</h3>
+<ul>
+    {% for bus in buses %}
+    <li>{{ bus.bus_number }} - {{ bus.route }} - <a href="{% url 'book_ticket' bus.id %}">Book Now</a></li>
+    {% endfor %}
+</ul>
+{% endblock %}

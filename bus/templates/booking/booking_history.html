@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>My Bookings</h2>
+{% if bookings %}
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Booking ID</th>
+                <th>Bus</th>
+                <th>Travel Date</th>
+                <th>Total Fare</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for booking in bookings %}
+            <tr>
+                <td>{{ booking.id }}</td>
+                <td>{{ booking.bus.name }}</td>
+                <td>{{ booking.travel_date }}</td>
+                <td>${{ booking.total_fare }}</td>
+                <td>{{ booking.status }}</td>
+                <td>
+                    {% if booking.status == 'CONFIRMED' and booking.travel_date|timeuntil:"hours" >= 6 %}
+                    <a href="{% url 'cancel_booking' booking.id %}" 
+                       class="btn btn-danger btn-sm"
+                       onclick="return confirm('Are you sure you want to cancel this booking?')">
+                        Cancel
+                    </a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">You haven't made any bookings yet.</div>
+{% endif %}
+{% endblock %}
